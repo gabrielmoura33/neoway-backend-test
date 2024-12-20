@@ -2,10 +2,10 @@ package usecase
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/gabrielmoura33/neoway-backend-test/domain"
 	"github.com/gabrielmoura33/neoway-backend-test/infrastructure/repository"
-	"github.com/gabrielmoura33/neoway-backend-test/infrastructure/validator"
 )
 
 type ClientUseCase interface {
@@ -24,20 +24,25 @@ func NewClientUseCase(repo repository.ClientRepository) ClientUseCase {
 }
 
 func (uc *clientUseCase) CreateClient(c *domain.Client) error {
+	cleanDoc := removeNonDigits(c.Document)
+
+	// Validação simples: apenas checar tamanho
 	if c.Type == domain.ClientTypeIndividual {
-		if !validator.IsValidCPF(c.Document) {
-			return errors.New("invalid CPF")
+		// Espera-se 11 dígitos para CPF
+		if len(cleanDoc) != 11 {
+			return errors.New("invalid CPF length")
 		}
 	} else if c.Type == domain.ClientTypeCompany {
-		if !validator.IsValidCNPJ(c.Document) {
-			return errors.New("invalid CNPJ")
+		// Espera-se 14 dígitos para CNPJ
+		if len(cleanDoc) != 14 {
+			return errors.New("invalid CNPJ length")
 		}
 	} else {
 		return errors.New("unknown client type")
 	}
 
-	// Checar existência
-	exists, err := uc.repo.Exists(c.Document)
+	// Verifica se o documento já existe (utilizando a versão sem pontuações)
+	exists, err := uc.repo.Exists(cleanDoc)
 	if err != nil {
 		return err
 	}
@@ -45,7 +50,12 @@ func (uc *clientUseCase) CreateClient(c *domain.Client) error {
 		return errors.New("document already exists")
 	}
 
-	return uc.repo.Create(c)
+	return uc.repo.Create(&domain.Client{
+		Document:  c.Document, // Armazena com pontuações
+		Name:      c.Name,
+		Type:      c.Type,
+		IsBlocked: c.IsBlocked,
+	})
 }
 
 func (uc *clientUseCase) GetAllClients(filterName string) ([]domain.Client, error) {
@@ -53,15 +63,12 @@ func (uc *clientUseCase) GetAllClients(filterName string) ([]domain.Client, erro
 }
 
 func (uc *clientUseCase) GetClientByDocument(document string) (*domain.Client, error) {
-	// Verificar CPF/CNPJ válido
-	if validator.IsCPF(document) {
-		if !validator.IsValidCPF(document) {
-			return nil, errors.New("invalid CPF")
-		}
-	} else if validator.IsCNPJ(document) {
-		if !validator.IsValidCNPJ(document) {
-			return nil, errors.New("invalid CNPJ")
-		}
+	cleanDoc := removeNonDigits(document)
+
+	if len(cleanDoc) == 11 {
+		// CPF - mas não verificamos dígito verificador
+	} else if len(cleanDoc) == 14 {
+		// CNPJ - mas não verificamos dígito verificador
 	} else {
 		return nil, errors.New("invalid document format")
 	}
@@ -69,17 +76,19 @@ func (uc *clientUseCase) GetClientByDocument(document string) (*domain.Client, e
 }
 
 func (uc *clientUseCase) ClientExists(document string) (bool, error) {
-	// Apenas verifica se é válido
-	if validator.IsCPF(document) {
-		if !validator.IsValidCPF(document) {
-			return false, errors.New("invalid CPF")
-		}
-	} else if validator.IsCNPJ(document) {
-		if !validator.IsValidCNPJ(document) {
-			return false, errors.New("invalid CNPJ")
-		}
+	cleanDoc := removeNonDigits(document)
+
+	if len(cleanDoc) == 11 {
+		// CPF de 11 dígitos
+	} else if len(cleanDoc) == 14 {
+		// CNPJ de 14 dígitos
 	} else {
 		return false, errors.New("invalid document format")
 	}
-	return uc.repo.Exists(document)
+	return uc.repo.Exists(cleanDoc)
+}
+
+func removeNonDigits(s string) string {
+	r := strings.NewReplacer(".", "", "-", "", "/", "")
+	return r.Replace(s)
 }
