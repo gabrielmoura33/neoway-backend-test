@@ -5,11 +5,8 @@ import (
 	"strconv"
 )
 
-// IsValidCPF validates a CPF number.
-func IsValidCPF(cpf string) bool {
-	re := regexp.MustCompile(`\D`)
-	cpf = re.ReplaceAllString(cpf, "")
-
+func IsValidCPF(document string) bool {
+	cpf := onlyDigits(document)
 	if len(cpf) != 11 {
 		return false
 	}
@@ -28,7 +25,7 @@ func IsValidCPF(cpf string) bool {
 	for i := 9; i < 11; i++ {
 		sum := 0
 		for j := 0; j < i; j++ {
-			num, _ := strconv.Atoi(string(cpf[j])) // Convert byte to string
+			num, _ := strconv.Atoi(string(cpf[j]))
 			sum += num * (i + 1 - j)
 		}
 		rest := sum % 11
@@ -37,7 +34,7 @@ func IsValidCPF(cpf string) bool {
 		} else {
 			rest = 11 - rest
 		}
-		if rest != atoi(string(cpf[i])) { // Convert byte to string
+		if rest != atoi(string(cpf[i])) {
 			return false
 		}
 	}
@@ -45,11 +42,8 @@ func IsValidCPF(cpf string) bool {
 	return true
 }
 
-// IsValidCNPJ validates a CNPJ number.
-func IsValidCNPJ(cnpj string) bool {
-	re := regexp.MustCompile(`\D`)
-	cnpj = re.ReplaceAllString(cnpj, "")
-
+func IsValidCNPJ(document string) bool {
+	cnpj := onlyDigits(document)
 	if len(cnpj) != 14 {
 		return false
 	}
@@ -70,7 +64,7 @@ func IsValidCNPJ(cnpj string) bool {
 		sum := 0
 		pos := length - 7
 		for i := length - 1; i >= 0; i-- {
-			num := atoi(string(c[length-1-i])) // Convert byte to string
+			num := atoi(string(c[length-1-i]))
 			sum += num * pos
 			pos--
 			if pos < 2 {
@@ -83,15 +77,12 @@ func IsValidCNPJ(cnpj string) bool {
 		} else {
 			result = 11 - result
 		}
-		return result == atoi(string(c[len(c)-1])) // Convert byte to string
+		return result == atoi(string(c[len(c)-1]))
 	}
 
-	// Check first digit
 	if !calcDigits(cnpj[:12]) {
 		return false
 	}
-
-	// Check second digit
 	if !calcDigits(cnpj[:13]) {
 		return false
 	}
@@ -99,22 +90,12 @@ func IsValidCNPJ(cnpj string) bool {
 	return true
 }
 
-// atoi converts a string to an integer. Returns 0 on error.
 func atoi(s string) int {
 	i, _ := strconv.Atoi(s)
 	return i
 }
 
-// IsCPF determines if a document is a CPF based on its length.
-func IsCPF(document string) bool {
+func onlyDigits(s string) string {
 	re := regexp.MustCompile(`\D`)
-	doc := re.ReplaceAllString(document, "")
-	return len(doc) == 11
-}
-
-// IsCNPJ determines if a document is a CNPJ based on its length.
-func IsCNPJ(document string) bool {
-	re := regexp.MustCompile(`\D`)
-	doc := re.ReplaceAllString(document, "")
-	return len(doc) == 14
+	return re.ReplaceAllString(s, "")
 }

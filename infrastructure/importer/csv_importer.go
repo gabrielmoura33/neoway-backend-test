@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/gabrielmoura33/neoway-backend-test/domain"
-	"github.com/gabrielmoura33/neoway-backend-test/infrastructure/validator"
 	"github.com/gabrielmoura33/neoway-backend-test/usecase"
 )
 
@@ -24,42 +23,50 @@ func ImportCSV(filePath string, uc usecase.ClientUseCase) error {
 		return err
 	}
 
-	// Espera-se colunas: DOCUMENTO, NOME/RAZAO_SOCIAL
-	// A primeira linha é o header
+	var successCount, failCount int
 	for i, line := range records {
 		if i == 0 {
-			continue // pular header
+			// Ignora o header
+			continue
 		}
 		if len(line) < 2 {
-			continue // linha inválida
+			log.Printf("Linha %d inválida: %v\n", i+1, line)
+			failCount++
+			continue
 		}
+
 		document := strings.TrimSpace(line[0])
 		name := strings.TrimSpace(line[1])
 
-		// Determinar o tipo PF ou PJ
-		var clientType domain.ClientType
+		// O tipo será determinado pelo tamanho do documento após remover dígitos não numéricos.
 		cleanDoc := removeNonDigits(document)
+		var clientType domain.ClientType
 		if len(cleanDoc) == 11 {
 			clientType = domain.ClientTypeIndividual
 		} else if len(cleanDoc) == 14 {
 			clientType = domain.ClientTypeCompany
 		} else {
-			// Documento inválido, pular
-			log.Printf("Documento inválido linha %d: %s", i+1, document)
+			log.Printf("Linha %d: Documento inválido (%s)", i+1, document)
+			failCount++
 			continue
 		}
 
-		client := domain.Client{
-			Document:  document,
+		client := &domain.Client{
+			Document:  document, // Armazena com pontuação
 			Name:      name,
 			Type:      clientType,
-			IsBlocked: false, // não há essa info no CSV, assumiremos false
+			IsBlocked: false,
 		}
 
-		if err := uc.CreateClient(&client); err != nil {
-			log.Printf("Erro ao importar cliente na linha %d: %v", i+1, err)
+		if err := uc.CreateClient(client); err != nil {
+			log.Printf("Erro ao importar cliente na linha %d (Doc: %s): %v", i+1, document, err)
+			failCount++
+		} else {
+			successCount++
 		}
 	}
+
+	log.Printf("Importação concluída. Sucesso: %d, Falhas: %d\n", successCount, failCount)
 	return nil
 }
 
